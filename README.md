@@ -1,5 +1,7 @@
 # core-power-mgt
 
+![Go Build](https://github.com/crunchycookie/core-power-mgt/actions/workflows/go.yml/badge.svg)
+
 A CPU-core power management microservice.
 
 This service wraps the [Intel Power Optimization Library](https://github.com/intel/power-optimization-library) to 
