@@ -20,3 +20,4 @@ gc-controller
 
 # Go workspace file
 go.work
+.idea
