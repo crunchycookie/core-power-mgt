@@ -3,9 +3,9 @@
 # 2. Might need to enable SSH tunneling for ease of testing.
 # Ex: ssh -L 3000:localhost:3000 <your-ip>
 echo "---- Preparing remote dev env ----"
-echo "remote host: $REMOTE_IP, and remote user: $REMOTE_USER"
-
-REMOTE_WORKSPACE=/home/$REMOTE_USER/workspace/gc-remote-work
+echo "remote host:" $REMOTE_IP
+echo "remote user:" $REMOTE_USER
+echo "remote workspace:" $REMOTE_WORKSPACE
 
 echo "--> building go service for debugging..."
 GOOS=linux GOARCH=amd64 go build -gcflags="-N -l" -o gc-controller
