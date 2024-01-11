@@ -34,7 +34,7 @@ func main() {
 	router.GET("/gc-controller/sleep-info", apiHandler.GetSleepInfo)
 	router.PUT("/gc-controller/sleep", apiHandler.PutSleepOP)
 	router.PUT("/gc-controller/wake", apiHandler.PutAwakeOP)
-	router.PUT("/gc-controller/perf", apiHandler.PutPoolFreq)
+	router.PUT("/gc-controller/dev/perf", apiHandler.PutPoolFreq)
 
 	log.Println("begin serving...")
 	err = router.Run(conf.Host.Name + ":" + strconv.Itoa(conf.Host.Port))
