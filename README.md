@@ -45,34 +45,44 @@ For example, below will build the service for linux env. with `amd64` cpu.
 
 `GOOS=linux GOARCH=amd64 go build -gcflags="-N -l" -o gc-controller`
 
-Run the service with `./gc-controller` command (tested on linux - might change for other envs).
+Run the service with `./gc-controller <config-file>` command (tested on linux - might change for other envs).
+
+An example `<config-file>` is `conf.yaml`.
+```yaml
+host:
+  name: localhost
+  port: 3000
+topology:
+  stable-core-count: 3
+  dynamic-core-count: 1
+power-profile:
+  sleep-idle-state: C3_ACPI
+  sleep-frq: 400
+  perf-idle-state: POLL
+  perf-frq: 2600
+```
+Note: Total core count must exceed stable and dynamic core sum. Available total cores can be obtained via `lscpu` in 
+linux to check `Core(s) per socket` attribute. Available idle states can be obtained via `cpupower idle-info` command 
+and observing attribute `Available idle states:`. Frequency (`frq`) values can be set by reading cpu spec sheet. Notice 
+per-core max frequency might be lower than cpu max frequency. Overcommitment values will be capped at upper and lower bounds.
+
 
 ### Supported APIs
 
 - `/gc-controller/sleep`
-    - Put the core to the sleep mode. 
-    - Notice: `count` parameter support is not yet implemented.
+    - Set dynamic cores to sleep mode.
     - ```
-      curl --location --request PUT 'http://localhost:3000/gc-controller/sleep' \
-      --header 'Content-Type: application/json' \
-      --data '{
-      "count": 2
-      }'
+      curl --location --request PUT 'http://<host.ip>:<host.port>/gc-controller/sleep'
       ``` 
 - `/gc-controller/wake`
-    - Put the core to the woken mode.
-    - Notice: `count` parameter support is not yet implemented.
+    - Set dynamic cores to perf mode.
     - ```
-      curl --location --request PUT 'http://localhost:3000/gc-controller/wake' \
-      --header 'Content-Type: application/json' \
-      --data '{
-      "count": 2
-      }'
+      curl --location --request PUT 'http://<host.ip>:<host.port>/gc-controller/wake'
       ```
 - `/gc-controller/perf`
-    - Change the operating frequency of the core.
+    - Change clock frequency of dynamic cores.
     - ```
-      curl --location --request PUT 'http://localhost:3000/gc-controller/perf' \
+      curl --location --request PUT 'http://<host.ip>:<host.port>/gc-controller/perf' \
       --header 'Content-Type: application/json' \
       --data '{
       "f-mhz": 2600
@@ -136,15 +146,15 @@ binary needs to run with sudo.
         2. We will monitor the effect later.
 2. Perform test:
     1. Start the service `sudo ./gc-controller`.
-        1. **What is does:** pool first three cores (`0,1,2`) as fully awake (`POLL` state)regulars and set its frequency to `2.8Ghz` -> Higher
+        1. **What is does:** pool first three cores (`0,1,2`) as fully awake (`POLL` state) stables and set its frequency to `2.8Ghz` -> Higher
            performance pool of cores supporting most workloads including latency critical tasks. Last core is set as a
-           Green Core and initialized to the deepest possible sleep state (`C3_ACPI`) and its performance is degraded to
+           dynamic Core and initialized to the deepest possible sleep state (`C3_ACPI`) and its performance is degraded to
            a low value (`core frequency is less than 500 Mhz`).
         2. **Verification:** i7z shows actual frequency values as expected, and turbostat verifies sleep states.
            ![perf-states-verification.png](docs/perf-states-verification.png)
            ![c-states-verification.png](docs/c-states-verification.png)
     2. Run powerstat tool to collect CPU power through RAPL `sudo powerstat -R`
-    3. Wake up the green core via `curl --location --request PUT 'http://localhost:3000/gc-controller/wake' \
+    3. Wake up the dynamic pool via `curl --location --request PUT 'http://localhost:3000/gc-controller/wake' \
        --header 'Content-Type: application/json' \
        --data '{
        "count": 2

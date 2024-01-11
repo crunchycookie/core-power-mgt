@@ -2,106 +2,109 @@ package power
 
 import (
 	"fmt"
+	"github.com/crunchycookie/openstack-gc/gc-controller/internal/model"
 	"github.com/intel/power-optimization-library/pkg/power"
 	"log"
+	"slices"
 	"sync"
 )
 
 const (
-	RegularCoresPoolName           = "rc-pool"
-	GreenCoresPoolName             = "gc-pool"
+	StablePool                     = "stbl-pool"
+	DynamicPool                    = "dyn-pool"
 	MaxPerformancePowerProfileName = "maxPerfProf"
-	CStatesFullyAwake              = "POLL"
-	SleepingFq                     = 100
-	FullyAwakeFq                   = 2600
 )
 
 var DeepestSleepStateLbl string
 
 type SleepController struct {
 	Host power.Host
+	conf model.ConfYaml
 	mu   sync.Mutex
 }
 
-// NewSleepController prepares host for green cores, and returns a controller for that. It assumes 4 physical cores cpu
-// (preferably features such as hyper-threading disabled to achieve this) and the core configuration is hardcoded;
-// 3 - regular cores and 1- green cores. This service must see on-node kernel, such that true control of the cores are
-// provided (for example, running on a vm might only provide the vCPU abstract).
-//
-// Regular cores power profile is set at the high-performance (core clock set between 2.6-2.8 GHz), and its sleep state is set
-// to POLL, which prevents the core from going into sleep states. This provides cpu cores that can cater workloads
-// without compromise to service quality (instant execution at maximum performance).
-//
-// Green cores power profile is set at the same high-performance, but they are set at the deepest sleep state that the
-// platform can offer. This provides minimum power draw, emulating fully asleep green cores; deepest the sleep state,
-// core reaches perfect full asleep state.
-func NewSleepController() (*SleepController, error) {
+func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
 	log.Println("creating a power instance...")
 	host, err := getPowerHost()
 	if err != nil {
 		return nil, err
 	}
 
-	log.Println("moving all cpu cores into the shared pool...")
-	err = host.GetSharedPool().SetCpuIDs([]uint{0, 1, 2, 3})
+	coreIds := host.GetAllCpus().IDs()
+	reqCoreCount := conf.Topology.StableCoreCount + conf.Topology.DynamicCoreCount
+	if reqCoreCount > len(coreIds) {
+		return nil, fmt.Errorf("incorrect topology. required core count: %d, but only %d available", reqCoreCount, len(coreIds))
+	}
+	managedCoreIds := coreIds[0:reqCoreCount]
+	stableCoreIds := managedCoreIds[0:conf.Topology.StableCoreCount]
+	dynamicCoreIds := managedCoreIds[len(stableCoreIds):reqCoreCount]
+
+	log.Printf("moving cores: %v into the shared pool...", managedCoreIds)
+	err = host.GetSharedPool().SetCpuIDs(managedCoreIds)
 	if err != nil {
 		return nil, fmt.Errorf("failed at moving all cpu cores into the shared pool: %w", err)
 	}
 
-	log.Println("grouping cores into regular and green pools...")
-	err1 := moveCoresToPool(&host, RegularCoresPoolName, []uint{0, 1, 2})
-	err2 := moveCoresToPool(&host, GreenCoresPoolName, []uint{3})
+	log.Printf("grouping %v into stable and %v into dynamic pools...", stableCoreIds, dynamicCoreIds)
+	err1 := moveCoresToPool(&host, StablePool, stableCoreIds)
+	err2 := moveCoresToPool(&host, DynamicPool, dynamicCoreIds)
 	if err1 != nil || err2 != nil {
 		return nil, fmt.Errorf("failed at grouping cores into pools: %w and %w", err1, err2)
 	}
 
-	log.Println("changing all cores to maximum performance profile...")
-	err1 = setPerf(&host, RegularCoresPoolName, 2600)
-	err2 = setPerf(&host, GreenCoresPoolName, 100) // CPU might stop at the lowest possible value, which might be higher that the provided.
+	log.Println("setting initial perf levels: dynamic pool initially at sleep perf...")
+	err1 = setPerf(&host, StablePool, uint(conf.PowerProfile.PerfFrq))
+	err2 = setPerf(&host, DynamicPool, uint(conf.PowerProfile.SleepFrq))
 	if err1 != nil || err2 != nil {
 		return nil, fmt.Errorf("failed at setting cores to max performance: %w and %w", err1, err2)
 	}
 
-	log.Println("setting initial sleep levels: fully awake regulars and deep sleep greens...")
-	//todo assumes an array with ordered list of c-states; most awake first. we might need to handle this properly.
-	deepSleepLabel, err := evaluateReqSleepStates(&host)
-	DeepestSleepStateLbl = deepSleepLabel
-	if err != nil {
-		return nil, err
+	availableIdleStates := host.AvailableCStates()
+	if !slices.Contains(availableIdleStates, conf.PowerProfile.PerfIdleState) || !slices.Contains(availableIdleStates, conf.PowerProfile.SleepIdleState) {
+		return nil, fmt.Errorf("platform does not support requested idle states. need %s and %s, "+
+			"but only supports %s", conf.PowerProfile.PerfIdleState, conf.PowerProfile.SleepIdleState, availableIdleStates)
 	}
-	err1 = setPoolSleepState(&host, RegularCoresPoolName, false)
-	log.Printf("using deep sleep state: %s for green cores\n", DeepestSleepStateLbl)
-	err2 = setPoolSleepState(&host, GreenCoresPoolName, true)
+
+	log.Println("setting initial sleep levels: dynamic pool initially sleeps...")
+	err1 = setPoolSleepState(&host, StablePool, conf.PowerProfile.PerfIdleState, availableIdleStates)
+	err2 = setPoolSleepState(&host, DynamicPool, conf.PowerProfile.SleepIdleState, availableIdleStates)
 	if err1 != nil || err2 != nil {
 		return nil, fmt.Errorf("failed setting pool sleep states: %w, %w", err1, err2)
 	}
 
 	return &SleepController{
 		Host: host,
+		conf: *conf,
 	}, nil
 }
 
-func evaluateReqSleepStates(host *power.Host) (deepSleepLabel string, err error) {
-	availableCStates := (*host).AvailableCStates()
-	if availableCStates[0] != CStatesFullyAwake {
-		return "", fmt.Errorf("platform needs to support cores being fully awake (i.e. c-state = POLL)")
+func (o *SleepController) Clean() error {
+	exlPools := o.Host.GetAllExclusivePools()
+	err1 := exlPools.ByName(StablePool).Remove()
+	err2 := exlPools.ByName(DynamicPool).Remove()
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("failed at moving cores back to the shared pool: %w, %w", err1, err2)
 	}
-	if len(availableCStates) < 2 {
-		return "", fmt.Errorf("platform needs to support low-power c-states (provided: %x)", availableCStates)
+	err := o.Host.GetSharedPool().Remove()
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("failed at moving cores back to the reserved pool: %w", err)
 	}
-	deepSleepIdleStatus := availableCStates[len(availableCStates)-1]
-	return deepSleepIdleStatus, nil
+	return nil
 }
 
-func setPoolSleepState(host *power.Host, poolName string, isSleep bool) error {
-	err := (*host).GetExclusivePool(poolName).SetCStates(power.CStates{
-		"POLL":    !isSleep,
-		"C1_ACPI": false,
-		"C2_ACPI": false,
-		"C3_ACPI": isSleep,
-	})
+func setPoolSleepState(host *power.Host, poolName string, idleState string, avlIdleStates []string) error {
+	cStates := power.CStates{}
+	for _, state := range avlIdleStates {
+		if state == idleState {
+			cStates[state] = true
+			continue
+		}
+		cStates[state] = false
+	}
+	log.Printf("setting pool: %s sleep levels as %v ...", poolName, cStates)
+	err := (*host).GetExclusivePool(poolName).SetCStates(cStates)
 	if err != nil {
-		return fmt.Errorf("failed at setting %s pool to isSleep: %t", poolName, isSleep)
+		return fmt.Errorf("failed at setting %s pool to %v", poolName, cStates)
 	}
 	return nil
 }

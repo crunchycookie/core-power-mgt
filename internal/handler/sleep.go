@@ -17,27 +17,25 @@ func (o *SleepAPIHandler) GetSleepInfo(c *gin.Context) {
 }
 
 func (o *SleepAPIHandler) PutSleepOP(c *gin.Context) {
-	var newSleepOp model.SleepOp
-	if err := c.BindJSON(&newSleepOp); err != nil {
+	controller := o.Controller
+	err := controller.Sleep()
+	if err != nil {
+		c.Error(err)
 		return
 	}
 
-	controller := o.Controller
-	controller.Sleep(newSleepOp.Count)
-
-	c.IndentedJSON(http.StatusCreated, newSleepOp)
+	c.IndentedJSON(http.StatusCreated, nil)
 }
 
 func (o *SleepAPIHandler) PutAwakeOP(c *gin.Context) {
-	var newSleepOp model.SleepOp
-	if err := c.BindJSON(&newSleepOp); err != nil {
+	controller := o.Controller
+	err := controller.Wake()
+	if err != nil {
+		c.Error(err)
 		return
 	}
 
-	controller := o.Controller
-	controller.Wake(newSleepOp.Count)
-
-	c.IndentedJSON(http.StatusCreated, newSleepOp)
+	c.IndentedJSON(http.StatusCreated, nil)
 }
 
 func (o *SleepAPIHandler) PutPoolFreq(c *gin.Context) {
@@ -47,7 +45,15 @@ func (o *SleepAPIHandler) PutPoolFreq(c *gin.Context) {
 	}
 
 	controller := o.Controller
-	controller.OpFrequency(newFqOp.FMhz)
+	err := controller.OpFrequency(newFqOp.FMhz)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	c.IndentedJSON(http.StatusCreated, newFqOp)
+}
+
+func (o *SleepAPIHandler) Clean() error {
+	return o.Controller.Clean()
 }
