@@ -16,5 +16,6 @@ ssh $REMOTE_USER@$REMOTE_IP "rm -rf $REMOTE_WORKSPACE/*"
 echo "--> copying files..."
 scp ./gc-controller $REMOTE_USER@$REMOTE_IP:$REMOTE_WORKSPACE
 scp ./run-at-remote-for-debug.sh $REMOTE_USER@$REMOTE_IP:$REMOTE_WORKSPACE
+scp ./sample-conf.yaml $REMOTE_USER@$REMOTE_IP:$REMOTE_WORKSPACE
 
 echo "--> done!"

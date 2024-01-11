@@ -1,29 +1,23 @@
 package dummy
 
 import (
+	"github.com/crunchycookie/openstack-gc/gc-controller/internal/model"
 	"gopkg.in/yaml.v3"
 )
 
-type Host struct {
-	Name string `yaml:"name"`
-	Port int    `yaml:"port"`
-}
-
-type Gc struct {
-	PoolSize int `yaml:"pool-size"`
-}
-
-type dummyConfigYaml struct {
-	Host Host `yaml:"host"`
-	Gc   Gc   `yaml:"gc"`
-}
-
-var DefaultConfigsBytes, _ = yaml.Marshal(&dummyConfigYaml{
-	Host: Host{
+var DefaultConfigsBytes, _ = yaml.Marshal(&model.ConfYaml{
+	Host: model.Host{
 		Name: "localhost",
 		Port: 3000,
 	},
-	Gc: Gc{
-		PoolSize: 4,
+	Topology: model.Topology{
+		StableCoreCount:  4,
+		DynamicCoreCount: 1,
+	},
+	PowerProfile: model.PowerProfile{
+		SleepIdleState: "C3_ACPI",
+		SleepFrq:       400,
+		PerfIdleState:  "POLL",
+		PerfFrq:        2800,
 	},
 })
