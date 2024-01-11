@@ -15,23 +15,19 @@ support for different vendors would be seamless for the end-user. Current APIs s
 
 Current implementation expects below requirements.
 
-- Linux-based operating system
+- A Linux-based operating system
 - Intel processor with core idle-states and dynamic frequency scaling support.
-    - Current impl. expects a four core CPU (hyper-threading disabled) with four c-states support (`POLL, C1_ACPI, C2_ACPI, C3_ACPI`)
 - Linux idle driver must be `intel_idle`
 
-Current implementation creates the below configuration.
-- Out of four cpu cores, first three are high-performance cores
-    - Clock frequency is fixed on `2.6 Ghz`
-    - Cores will never go idle (idle state is always set to `POLL`)
-- Power management of the remaining core is supported via APIs
-
-These limitations will be fixed as project evolves.
+...and supports followings.
+- Creates two core groups: Stable and Dynamic.
+- Supports assigning power profiles for each group: core idle state + clock frequency.
+- Upon termination (`^C`), safely handovers power management back to the operating system.
 
 ###### Project goals
 
 Evolve towards supporting fine-grained core power management through APIs; core-grouping, setting power profiles, per-
-core power management.
+core power management, power monitoring, etc.
 
 ### Build & run
 
@@ -79,10 +75,10 @@ per-core max frequency might be lower than cpu max frequency. Overcommitment val
     - ```
       curl --location --request PUT 'http://<host.ip>:<host.port>/gc-controller/wake'
       ```
-- `/gc-controller/perf`
+- `/gc-controller/dev/perf`
     - Change clock frequency of dynamic cores.
     - ```
-      curl --location --request PUT 'http://<host.ip>:<host.port>/gc-controller/perf' \
+      curl --location --request PUT 'http://<host.ip>:<host.port>/gc-controller/dev/perf' \
       --header 'Content-Type: application/json' \
       --data '{
       "f-mhz": 2600
@@ -106,8 +102,8 @@ environment via SSH. The authentication details to perform this is injected via 
 example execution looks like below.
 
 - Template:`REMOTE_IP=<remote-ip> REMOTE_USER=<remote-user> sh build-debug.sh`
-- Say remote ip is 10.12.13.5, and user is ubuntu,
-    - `REMOTE_IP=10.12.13.5 REMOTE_USER=ubuntu sh build-debug.sh`
+- Say remote ip is 10.13.13.5, and user is ubuntu,
+    - `REMOTE_IP=10.13.13.5 REMOTE_USER=ubuntu sh build-debug.sh`
 
 ps: For any other environment, the script needs to be modified (ex: for linux with arm64, the
 env vars of app building command needs to be changed appropriately)
@@ -129,7 +125,7 @@ in `/home/<user>/go/bin`.
 Intel power library is the core driver of this service. It requires sudo privileges to modify `sysfs`, thus gc-controller
 binary needs to run with sudo.
 
-`sudo ./gc-controller`
+`sudo ./gc-controller ./sample-conf.yaml`
 
 #### Verification
 
@@ -169,6 +165,6 @@ binary needs to run with sudo.
        ![power-verification-post.png](docs/power-verification-post.png)
 #### Post-cleanup
 
-The changed states will persist even after service is stopped. Therefore, it's recommended to restart the system, such
-that normal operation is resumed.
+Upon successful startup, terminating service via `^c` (cntrl + c or cmd + c in mac) will safely close the program.
 
+For any other case, restart the system. This will reset any changes done.

@@ -1,5 +1,5 @@
 host:
-  name: 100.118.13.68
+  name: localhost
   port: 3000
 topology:
   stable-core-count: 3
