@@ -7,8 +7,9 @@ import (
 
 var DefaultConfigsBytes, _ = yaml.Marshal(&model.ConfYaml{
 	Host: model.Host{
-		Name: "localhost",
-		Port: 3000,
+		Name:      "localhost",
+		Port:      3000,
+		IsEmulate: false,
 	},
 	Topology: model.Topology{
 		StableCoreCount:  4,

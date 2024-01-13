@@ -18,12 +18,23 @@ const (
 var DeepestSleepStateLbl string
 
 type SleepController struct {
-	Host power.Host
-	conf model.ConfYaml
-	mu   sync.Mutex
+	Host      power.Host
+	conf      model.ConfYaml
+	mu        sync.Mutex
+	isEmulate bool
 }
 
 func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
+
+	if conf.Host.IsEmulate {
+		log.Println("switching to emulation mode...")
+		return &SleepController{
+			Host:      nil,
+			conf:      *conf,
+			isEmulate: true,
+		}, nil
+	}
+
 	log.Println("creating a power instance...")
 	host, err := getPowerHost()
 	if err != nil {
@@ -73,12 +84,16 @@ func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
 	}
 
 	return &SleepController{
-		Host: host,
-		conf: *conf,
+		Host:      host,
+		conf:      *conf,
+		isEmulate: false,
 	}, nil
 }
 
 func (o *SleepController) Clean() error {
+	if o.isEmulate {
+		return nil
+	}
 	exlPools := o.Host.GetAllExclusivePools()
 	err1 := exlPools.ByName(StablePool).Remove()
 	err2 := exlPools.ByName(DynamicPool).Remove()

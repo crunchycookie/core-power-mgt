@@ -15,8 +15,9 @@ type SleepInfo struct {
 }
 
 type Host struct {
-	Name string `yaml:"name"`
-	Port int    `yaml:"port"`
+	Name      string `yaml:"name"`
+	Port      int    `yaml:"port"`
+	IsEmulate bool   `yaml:"is-emulate"`
 }
 
 type Topology struct {

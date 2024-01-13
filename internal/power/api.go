@@ -7,6 +7,11 @@ import (
 
 func (o *SleepController) Info() map[string]string {
 	fmt.Println("Listing out available sleep states...")
+	if o.isEmulate {
+		return map[string]string{
+			"message": "Controller is in emulation mode. All api responses are replied with the happy path response",
+		}
+	}
 	log.Printf("avl sleep states: %v\n", o.Host.AvailableCStates())
 	return map[string]string{
 		"avl-idle-states":  fmt.Sprintf("%v", o.Host.AvailableCStates()),
@@ -18,6 +23,10 @@ func (o *SleepController) Info() map[string]string {
 }
 
 func (o *SleepController) Sleep() error {
+	if o.isEmulate {
+		return nil
+	}
+
 	(*o).mu.Lock()
 	defer (*o).mu.Unlock()
 
@@ -35,6 +44,10 @@ func (o *SleepController) Sleep() error {
 }
 
 func (o *SleepController) Wake() error {
+	if o.isEmulate {
+		return nil
+	}
+
 	(*o).mu.Lock()
 	defer (*o).mu.Unlock()
 
@@ -52,6 +65,10 @@ func (o *SleepController) Wake() error {
 }
 
 func (o *SleepController) OpFrequency(fMhz uint) error {
+	if o.isEmulate {
+		return nil
+	}
+
 	(*o).mu.Lock()
 	defer (*o).mu.Unlock()
 
