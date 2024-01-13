@@ -17,8 +17,9 @@ func NewConfigs(path string) *model.ConfYaml {
 	loadConfigs(path, k)
 	return &model.ConfYaml{
 		Host: model.Host{
-			Name: k.String("host.name"),
-			Port: k.Int("host.port"),
+			Name:      k.String("host.name"),
+			Port:      k.Int("host.port"),
+			IsEmulate: k.Bool("host.is-emulate"),
 		},
 		Topology: model.Topology{
 			StableCoreCount:  k.Int("topology.stable-core-count"),

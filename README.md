@@ -48,6 +48,7 @@ An example `<config-file>` is `conf.yaml`.
 host:
   name: localhost
   port: 3000
+  is-emulate: false
 topology:
   stable-core-count: 3
   dynamic-core-count: 1
