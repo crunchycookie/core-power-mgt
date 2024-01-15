@@ -37,3 +37,17 @@ type ConfYaml struct {
 	Topology     Topology     `yaml:"topology"`
 	PowerProfile PowerProfile `yaml:"power-profile"`
 }
+
+type GreenScore struct {
+	AwakeStableCores  int `json:"avl-stable-cores"`
+	UtilStableCores   int `json:"util-stable-cores"`
+	AwakeDynamicCores int `json:"avl-dynamic-cores"`
+	UtilDynamicCores  int `json:"util-dynamic-cores"`
+	GreenScore        int `json:"green-score"`
+}
+
+type PowerStats struct {
+	CpuType                string  `json:"cpu-type"`                        // ex: Intel xeon E3000
+	HwUnitType             string  `json:"hw-unit-type"`                    // ex: cpu socket
+	HwUnitPowerConsumption float32 `json:"hw-unit-power-consumption-watts"` // ex: 4.01 Watts
+}

@@ -40,6 +40,9 @@ func (o *SleepController) Sleep() error {
 		return fmt.Errorf("failed at sleeping dynamic pool: %w, %w", err1, err2)
 	}
 	log.Printf("dynamic pool sleep state changed to: %s", DeepestSleepStateLbl)
+
+	// dynamic cores went to sleep.
+	o.sleepState.isDynamicCoresAsleep = true
 	return nil
 }
 
@@ -61,6 +64,7 @@ func (o *SleepController) Wake() error {
 		return fmt.Errorf("failed at waking dynamic pool: %w, %w", err1, err2)
 	}
 	log.Println("dynamic pool woken up")
+	o.sleepState.isDynamicCoresAsleep = false
 	return nil
 }
 

@@ -15,13 +15,20 @@ const (
 	MaxPerformancePowerProfileName = "maxPerfProf"
 )
 
+type CoreSleeps struct {
+	stableCpuIds         []uint
+	dynamicCpuIds        []uint
+	isDynamicCoresAsleep bool
+}
+
 var DeepestSleepStateLbl string
 
 type SleepController struct {
-	Host      power.Host
-	conf      model.ConfYaml
-	mu        sync.Mutex
-	isEmulate bool
+	Host       power.Host
+	conf       model.ConfYaml
+	mu         sync.Mutex
+	isEmulate  bool
+	sleepState CoreSleeps
 }
 
 func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
@@ -87,6 +94,11 @@ func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
 		Host:      host,
 		conf:      *conf,
 		isEmulate: false,
+		sleepState: CoreSleeps{
+			stableCpuIds:         append([]uint{}, stableCoreIds...),
+			dynamicCpuIds:        append([]uint{}, dynamicCoreIds...),
+			isDynamicCoresAsleep: true,
+		},
 	}, nil
 }
 

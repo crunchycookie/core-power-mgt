@@ -57,3 +57,25 @@ func (o *SleepAPIHandler) PutPoolFreq(c *gin.Context) {
 func (o *SleepAPIHandler) Clean() error {
 	return o.Controller.Clean()
 }
+
+func (o *SleepAPIHandler) GetGreenScore(c *gin.Context) {
+	var newGreenScore model.GreenScore
+	controller := o.Controller
+	err := controller.CalculateGreenScore(&newGreenScore)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.IndentedJSON(http.StatusOK, newGreenScore)
+}
+
+func (o *SleepAPIHandler) GetPowerStats(c *gin.Context) {
+	var newPowerStats model.PowerStats
+	controller := o.Controller
+	err := controller.ReadPowerStats(&newPowerStats)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.IndentedJSON(http.StatusOK, newPowerStats)
+}
