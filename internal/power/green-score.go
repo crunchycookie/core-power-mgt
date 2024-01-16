@@ -73,10 +73,3 @@ func getCoreUtilizationFromLibvirt(dynamicCoreIds []int, stableCoreIds []int) (i
 	}
 	return utilDynamicCores, utilStableCores, err
 }
-
-//func (o *SleepController) ReadPowerStats(m *model.PowerStats) model.PowerStats {
-//	if o.isEmulate {
-//		return nil
-//	}
-//	return nil
-//}
