@@ -23,6 +23,9 @@ func (o *SleepController) Info() map[string]string {
 }
 
 func (o *SleepController) Sleep() error {
+	// dynamic cores went to sleep.
+	o.sleepState.isDynamicCoresAsleep = true
+
 	if o.isEmulate {
 		return nil
 	}
@@ -41,12 +44,11 @@ func (o *SleepController) Sleep() error {
 	}
 	log.Printf("dynamic pool sleep state changed to: %s", DeepestSleepStateLbl)
 
-	// dynamic cores went to sleep.
-	o.sleepState.isDynamicCoresAsleep = true
 	return nil
 }
 
 func (o *SleepController) Wake() error {
+	o.sleepState.isDynamicCoresAsleep = false
 	if o.isEmulate {
 		return nil
 	}
@@ -64,7 +66,6 @@ func (o *SleepController) Wake() error {
 		return fmt.Errorf("failed at waking dynamic pool: %w, %w", err1, err2)
 	}
 	log.Println("dynamic pool woken up")
-	o.sleepState.isDynamicCoresAsleep = false
 	return nil
 }
 

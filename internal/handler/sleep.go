@@ -70,12 +70,12 @@ func (o *SleepAPIHandler) GetGreenScore(c *gin.Context) {
 }
 
 func (o *SleepAPIHandler) GetPowerStats(c *gin.Context) {
-	var newPowerStats model.PowerStats
-	controller := o.Controller
-	err := controller.ReadPowerStats(&newPowerStats)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.IndentedJSON(http.StatusOK, newPowerStats)
+	//var newPowerStats model.PowerStats
+	//controller := o.Controller
+	//err := controller.ReadPowerStats(&newPowerStats)
+	//if err != nil {
+	//	c.Error(err)
+	//	return
+	//}
+	//c.IndentedJSON(http.StatusOK, newPowerStats)
 }

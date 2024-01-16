@@ -3,14 +3,13 @@ package power
 import (
 	"fmt"
 	"github.com/crunchycookie/openstack-gc/gc-controller/internal/model"
-	"libvirt.org/go/libvirt"
+	"github.com/crunchycookie/openstack-gc/gc-controller/internal/utils"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 func (o *SleepController) CalculateGreenScore(m *model.GreenScore) error {
-	if o.isEmulate {
-		return nil
-	}
 	m.AwakeStableCores = len(o.sleepState.stableCpuIds)
 	if o.sleepState.isDynamicCoresAsleep {
 		m.AwakeDynamicCores = 0
@@ -22,12 +21,12 @@ func (o *SleepController) CalculateGreenScore(m *model.GreenScore) error {
 	if err != nil {
 		return fmt.Errorf("failed at obtaining core utilization info: %w", err)
 	}
-	m.UtilDynamicCores = int(utilDynamicCores)
-	m.UtilStableCores = int(utilStableCores)
+	m.UtilDynamicCores = utilDynamicCores
+	m.UtilStableCores = utilStableCores
 
-	utilMetric := utilDynamicCores + utilStableCores - uint(m.AwakeStableCores)
+	utilMetric := utilDynamicCores + utilStableCores - m.AwakeStableCores
 	if utilDynamicCores > 0 && utilMetric > 0 {
-		m.GreenScore = int(utilMetric)
+		m.GreenScore = utilMetric
 	} else {
 		m.GreenScore = 0
 	}
@@ -35,62 +34,49 @@ func (o *SleepController) CalculateGreenScore(m *model.GreenScore) error {
 	return nil
 }
 
-func getCoreUtilizations(o *SleepController) (uint, uint, error) {
+func getCoreUtilizations(o *SleepController) (int, int, error) {
 
 	//todo current version obtains utilization from libvirt virtualization. Need to make this configurable and extensible.
 	return getCoreUtilizationFromLibvirt(o.sleepState.dynamicCpuIds, o.sleepState.stableCpuIds)
 }
 
-func getCoreUtilizationFromLibvirt(dynamicCoreIds []uint, stableCoreIds []uint) (uint, uint, error) {
+type domainsVirshModel struct {
+	Name string `json:"Name"`
+}
+type emulatorPinVirshModel struct {
+	EmulatorCPUAffinity string `json:"emulator: CPU Affinity"`
+}
 
-	var pinnedInfo map[uint]bool
-	for _, coreId := range dynamicCoreIds {
-		pinnedInfo[coreId] = false
-	}
-	for _, coreId := range stableCoreIds {
-		pinnedInfo[coreId] = false
-	}
+func getCoreUtilizationFromLibvirt(dynamicCoreIds []int, stableCoreIds []int) (int, int, error) {
 
-	conn, err := libvirt.NewConnect("qemu:///system")
+	utilDynamicCores := 0
+	utilStableCores := 0
+	var domains []domainsVirshModel
+	err := utils.RunThirdPartyClient[domainsVirshModel](&domains, "virsh-list-domains.sh")
 	if err != nil {
-		return -1, -1, fmt.Errorf("failed at connecting to the virtualization layer; libvirt: %w", err)
+		return -1, -1, err
 	}
-	defer conn.Close()
-
-	doms, err := conn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE)
-	if err != nil {
-		return -1, -1, fmt.Errorf("failed at getting active instances information: %w", err)
-	}
-
-	fmt.Printf("%d running domains:\n", len(doms))
-	for _, dom := range doms {
-		name, err := dom.GetEmulatorPinInfo(1)
+	for _, domain := range domains {
+		var cpuAffinities []emulatorPinVirshModel
+		err := utils.RunThirdPartyClient[emulatorPinVirshModel](&cpuAffinities, "virsh-domain-get-pinned-cpu-core.sh", domain.Name)
 		if err != nil {
-			return -1, -1, fmt.Errorf("failed at getting pinned info: %w", err)
+			return -1, -1, err
 		}
-		if name != nil {
-			pinnedInfo[uint(name)] = true
-		}
-		dom.Free()
-	}
-
-	utilStableCores := uint(0)
-	utilDynamicCores := uint(0)
-	for coreId, isPinned := range pinnedInfo {
-		if !isPinned {
-			continue
-		}
-		if slices.Contains(dynamicCoreIds, coreId) {
-			utilDynamicCores++
-		} else if slices.Contains(stableCoreIds, coreId) {
-			utilStableCores++
+		for _, cpuAffinity := range cpuAffinities {
+			pinnedCore, _ := strconv.Atoi(strings.Split(cpuAffinity.EmulatorCPUAffinity, "*: ")[1])
+			if slices.Contains(dynamicCoreIds, pinnedCore) {
+				utilDynamicCores++
+			} else if slices.Contains(stableCoreIds, pinnedCore) {
+				utilStableCores++
+			}
 		}
 	}
-	return utilDynamicCores, utilStableCores, nil
+	return utilDynamicCores, utilStableCores, err
 }
 
-func (o *SleepController) ReadPowerStats(m *model.PowerStats) interface{} {
-	if o.isEmulate {
-		return nil
-	}
-}
+//func (o *SleepController) ReadPowerStats(m *model.PowerStats) model.PowerStats {
+//	if o.isEmulate {
+//		return nil
+//	}
+//	return nil
+//}
