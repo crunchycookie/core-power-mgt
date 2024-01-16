@@ -15,23 +15,39 @@ const (
 	MaxPerformancePowerProfileName = "maxPerfProf"
 )
 
+type CoreSleeps struct {
+	stableCpuIds         []int
+	dynamicCpuIds        []int
+	isDynamicCoresAsleep bool
+}
+
 var DeepestSleepStateLbl string
 
 type SleepController struct {
-	Host      power.Host
-	conf      model.ConfYaml
-	mu        sync.Mutex
-	isEmulate bool
+	Host       power.Host
+	conf       model.ConfYaml
+	mu         sync.Mutex
+	isEmulate  bool
+	sleepState CoreSleeps
 }
 
 func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
 
 	if conf.Host.IsEmulate {
 		log.Println("switching to emulation mode...")
+		var stableCoreIds []uint
+		for i := 0; i < conf.Topology.StableCoreCount; i++ {
+			stableCoreIds = append(stableCoreIds, uint(i))
+		}
+		var dynamicCoreIds []uint
+		for i := len(stableCoreIds); i < (len(stableCoreIds) + conf.Topology.DynamicCoreCount); i++ {
+			dynamicCoreIds = append(dynamicCoreIds, uint(i))
+		}
 		return &SleepController{
-			Host:      nil,
-			conf:      *conf,
-			isEmulate: true,
+			Host:       nil,
+			conf:       *conf,
+			isEmulate:  true,
+			sleepState: getSleepState(stableCoreIds, dynamicCoreIds),
 		}, nil
 	}
 
@@ -84,10 +100,28 @@ func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
 	}
 
 	return &SleepController{
-		Host:      host,
-		conf:      *conf,
-		isEmulate: false,
+		Host:       host,
+		conf:       *conf,
+		isEmulate:  false,
+		sleepState: getSleepState(stableCoreIds, dynamicCoreIds),
 	}, nil
+}
+
+func getSleepState(stableCoreIds []uint, dynamicCoreIds []uint) CoreSleeps {
+	var stableCpuIds []int
+	for _, id := range stableCoreIds {
+		stableCpuIds = append(stableCpuIds, int(id))
+	}
+	var dynamicCpuIds []int
+	for _, id := range dynamicCoreIds {
+		dynamicCpuIds = append(dynamicCpuIds, int(id))
+	}
+	sleepState := CoreSleeps{
+		stableCpuIds:         stableCpuIds,
+		dynamicCpuIds:        dynamicCpuIds,
+		isDynamicCoresAsleep: true,
+	}
+	return sleepState
 }
 
 func (o *SleepController) Clean() error {
