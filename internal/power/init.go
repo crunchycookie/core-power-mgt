@@ -79,9 +79,9 @@ func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
 		return nil, fmt.Errorf("failed at grouping cores into pools: %w and %w", err1, err2)
 	}
 
-	log.Println("setting initial perf levels: dynamic pool initially at sleep perf...")
+	log.Println("setting initial perf levels...")
 	err1 = setPerf(&host, StablePool, uint(conf.PowerProfile.PerfFrq))
-	err2 = setPerf(&host, DynamicPool, uint(conf.PowerProfile.SleepFrq))
+	err2 = setPerf(&host, DynamicPool, uint(conf.PowerProfile.PerfFrq))
 	if err1 != nil || err2 != nil {
 		return nil, fmt.Errorf("failed at setting cores to max performance: %w and %w", err1, err2)
 	}
@@ -92,9 +92,9 @@ func NewSleepController(conf *model.ConfYaml) (*SleepController, error) {
 			"but only supports %s", conf.PowerProfile.PerfIdleState, conf.PowerProfile.SleepIdleState, availableIdleStates)
 	}
 
-	log.Println("setting initial sleep levels: dynamic pool initially sleeps...")
+	log.Println("setting initial sleep levels...")
 	err1 = setPoolSleepState(&host, StablePool, conf.PowerProfile.PerfIdleState, availableIdleStates)
-	err2 = setPoolSleepState(&host, DynamicPool, conf.PowerProfile.SleepIdleState, availableIdleStates)
+	err2 = setPoolSleepState(&host, DynamicPool, conf.PowerProfile.PerfIdleState, availableIdleStates)
 	if err1 != nil || err2 != nil {
 		return nil, fmt.Errorf("failed setting pool sleep states: %w, %w", err1, err2)
 	}
